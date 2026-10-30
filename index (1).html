@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consignment number check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1E2A5A;
+    --paper: #F5F7FB;
+    --docket: #FFFFFF;
+    --rule: #C9D0E3;
+    --muted: #5B6584;
+    --tape: #F2C230;
+    --ok: #1F7A4D;
+    --bad: #B3261E;
+    --warn: #8A5A00;
+    --field: #FBFCFE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ink: #DCE3FA;
+      --paper: #11162A;
+      --docket: #1A2140;
+      --rule: #34406A;
+      --muted: #9AA5C9;
+      --tape: #D9AC22;
+      --ok: #5BC48D;
+      --bad: #F07A72;
+      --warn: #E0B04A;
+      --field: #141A33;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 16px/1.5 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    display: grid;
+    place-items: start center;
+    padding: 48px 16px;
+  }
+  .docket {
+    width: 100%;
+    max-width: 520px;
+    background: var(--docket);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .docket::before { /* tear-off perforation */
+    content: "";
+    position: absolute; left: 0; right: 0; top: 56px;
+    border-top: 2px dashed var(--rule);
+  }
+  .head {
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    background: var(--tape);
+    color: #1E2A5A;
+  }
+  .head h1 {
+    margin: 0;
+    font: 700 24px/1 "Barlow Condensed", "Arial Narrow", sans-serif;
+    letter-spacing: .02em;
+  }
+  .head small { font-size: 13px; font-weight: 500; }
+  .body { padding: 28px 20px 24px; }
+  label { display: block; font-weight: 600; margin-bottom: 8px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+  .row { display: flex; gap: 10px; }
+  input {
+    flex: 1; min-width: 0;
+    font: 600 26px/1 "Barlow Condensed", "Arial Narrow", sans-serif;
+    letter-spacing: .12em;
+    padding: 12px 14px;
+    color: var(--ink);
+    background: var(--field);
+    border: 1.5px solid var(--rule);
+    border-radius: 4px;
+  }
+  input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tape) 55%, transparent); }
+  input[aria-invalid="true"] { border-color: var(--bad); }
+  button {
+    font: 600 16px/1 "IBM Plex Sans", system-ui, sans-serif;
+    padding: 0 20px;
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    background: var(--ink);
+    color: var(--docket);
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: wait; }
+  button:focus-visible { outline: 3px solid var(--tape); outline-offset: 2px; }
+  .error { color: var(--bad); font-size: 14px; margin: 8px 0 0; min-height: 21px; }
+
+  .result {
+    margin-top: 20px;
+    min-height: 120px;
+    border: 1.5px dashed var(--rule);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .stamp {
+    display: inline-block;
+    font: 700 34px/1 "Barlow Condensed", "Arial Narrow", sans-serif;
+    letter-spacing: .06em;
+    padding: 8px 18px;
+    border: 3px solid currentColor;
+    border-radius: 6px;
+    transform: rotate(-6deg);
+    animation: thump .28s ease-out;
+  }
+  .stamp.ok { color: var(--ok); }
+  .stamp.bad { color: var(--bad); }
+  .stamp.warn { color: var(--warn); font-size: 26px; }
+  .result p { margin: 14px 0 0; color: var(--ink); }
+  .result details { margin-top: 14px; width: 100%; text-align: left; color: var(--ink); }
+  .result summary { cursor: pointer; font-size: 14px; color: var(--muted); text-align: center; }
+  .result pre { font-size: 12px; max-height: 280px; overflow: auto; background: var(--field); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; white-space: pre-wrap; word-break: break-word; }
+  .result .cn { font-weight: 600; letter-spacing: .06em; }
+  @keyframes thump {
+    from { transform: rotate(-6deg) scale(1.6); opacity: 0; }
+    to   { transform: rotate(-6deg) scale(1); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .stamp { animation: none; } }
+
+  .log { margin-top: 24px; }
+  .log h2 { font: 700 18px/1.2 "Barlow Condensed", "Arial Narrow", sans-serif; margin: 0 0 8px; }
+  .log ul { list-style: none; margin: 0; padding: 0; }
+  .log li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 8px 0; border-top: 1px solid var(--rule); font-size: 15px;
+  }
+  .log li span:first-child { letter-spacing: .06em; font-weight: 500; }
+  .tag-ok { color: var(--ok); } .tag-bad { color: var(--bad); } .tag-warn { color: var(--warn); }
+  .demo { font-size: 13px; color: var(--muted); margin: 16px 0 0; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  @media (max-width: 420px) {
+    .row { flex-direction: column; }
+    button { height: 48px; }
+  }
+</style>
+</head>
+<body>
+<main class="docket">
+  <div class="head">
+    <h1>Consignment check</h1>
+    <small>V-Trans</small>
+  </div>
+  <div class="body">
+    <form id="form" novalidate>
+      <label for="cn">Consignment number</label>
+      <div class="row">
+        <input id="cn" name="cn" inputmode="numeric" autocomplete="off" placeholder="e.g. 123456789" aria-describedby="hint err">
+        <button id="btn" type="submit">Check number</button>
+      </div>
+      <p class="hint" id="hint">Enter the number printed on the consignment note (LR / docket).</p>
+      <p class="error" id="err" role="alert"></p>
+    </form>
+
+    <div class="result" id="result" aria-live="polite">Your result will be stamped here.</div>
+
+    <section class="log" id="log" hidden>
+      <h2>Checked this session</h2>
+      <ul id="logList"></ul>
+    </section>
+
+    <p class="demo" id="demoNote" hidden>Demo mode: no API URL is set, so results are simulated. Numbers ending in an even digit come back valid.</p>
+  </div>
+</main>
+
+<script>
+/* ===================== CONFIG — edit these ===================== */
+const CONFIG = {
+  // Your endpoint. Leave empty to run in demo mode.
+  // Tip: call your own backend, which then calls the VTrans API,
+  // so the API key stays private and you avoid CORS errors.
+  // Your Cloudflare Worker URL (it adds the Xeny API key on the server side)
+  apiUrl: "https://vtrans-check.YOUR-SUBDOMAIN.workers.dev",
+  method: "POST",
+  paramName: "number",
+  extraBody: { skipEvents: "1" },
+  headers: {},                 // no API key here — it lives in the Worker
+  minLength: 6,
+  maxLength: 15,
+  pattern: /^[0-9A-Za-z]+$/,   // tighten to /^\d+$/ if numbers are digits only
+  timeoutMs: 10000,
+};
+
+// Map the API's response to { valid: true|false, message?: string }.
+// Change this to match the real VTrans response shape.
+// Search the whole response for a consignment whose "number" matches what was typed,
+// so it works wherever Xeny nests the record (lrs, data.lrs, ...).
+function findLr(node, cn, depth = 0) {
+  if (!node || typeof node !== "object" || depth > 8) return null;
+  if (!Array.isArray(node) && node.number != null &&
+      String(node.number).trim().toUpperCase() === cn) return node;
+  for (const v of Object.values(node)) {
+    const hit = findLr(v, cn, depth + 1);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function readResponse(json, cn) {
+  if (json?.exception) return { valid: false, message: json.exception.message || "" };
+  const lr = findLr(json, cn);
+  if (!lr) return { valid: false, message: "No consignment found with this number." };
+  const status = lr.readable_status || lr.state || lr.status || "";
+  return { valid: true, message: status ? `Status: ${status}` : "" };
+}
+/* ================================================================ */
+
+const $ = (id) => document.getElementById(id);
+const form = $("form"), input = $("cn"), btn = $("btn"),
+      err = $("err"), result = $("result"), log = $("log"), logList = $("logList");
+
+if (!CONFIG.apiUrl) $("demoNote").hidden = false;
+
+function validateFormat(v) {
+  if (!v) return "Enter a consignment number to check.";
+  if (!CONFIG.pattern.test(v)) return "Use letters and numbers only — no spaces or symbols.";
+  if (v.length < CONFIG.minLength || v.length > CONFIG.maxLength)
+    return `Consignment numbers are ${CONFIG.minLength}–${CONFIG.maxLength} characters long. This one is ${v.length}.`;
+  return "";
+}
+
+async function checkConsignment(cn) {
+  if (!CONFIG.apiUrl) { // demo mode
+    await new Promise(r => setTimeout(r, 700));
+    const even = Number(cn.slice(-1)) % 2 === 0;
+    return { valid: even, message: even ? "Booked consignment found." : "No consignment with this number." };
+  }
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), CONFIG.timeoutMs);
+  try {
+    let url = CONFIG.apiUrl, opts = { method: CONFIG.method, headers: { ...CONFIG.headers }, signal: ctrl.signal };
+    if (CONFIG.method === "GET") {
+      url += (url.includes("?") ? "&" : "?") + encodeURIComponent(CONFIG.paramName) + "=" + encodeURIComponent(cn);
+    } else {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify({ ...(CONFIG.extraBody || {}), [CONFIG.paramName]: cn });
+    }
+    const res = await fetch(url, opts);
+    if (res.status === 404) return { valid: false, message: "" };
+    if (res.status === 401 || res.status === 403)
+      throw new Error("The API key was rejected. It may have expired — get a new key from Xeny.");
+    if (!res.ok) {
+      const raw = await res.text();
+      console.log(`VTrans error ${res.status}:`, raw);
+      let detail = raw;
+      try {
+        const j = JSON.parse(raw);
+        const ex = j.exception || {};
+        detail = ex.message ? `${ex.message}${ex.errorcode ? ` (${ex.errorcode})` : ""}`
+               : j.message || j.msg || j.error || raw;
+      } catch {}
+      if (typeof detail !== "string") detail = JSON.stringify(detail);
+      throw new Error(`Status ${res.status}: ${detail.slice(0, 200) || "no details sent"}`);
+    }
+    const json = await res.json();
+    return { ...readResponse(json, cn), raw: json };
+  } finally { clearTimeout(t); }
+}
+
+function show(kind, cn, message, raw) {
+  const label = { ok: "Valid", bad: "Not found", warn: "Couldn’t check" }[kind];
+  const fallback = {
+    ok: "This consignment number exists.",
+    bad: "Check the number on the consignment note and try again.",
+    warn: "Check your connection and try again."
+  }[kind];
+  result.innerHTML = "";
+  const stamp = document.createElement("span");
+  stamp.className = "stamp " + kind; stamp.textContent = label;
+  const p = document.createElement("p");
+  const strong = document.createElement("span"); strong.className = "cn"; strong.textContent = cn;
+  p.append(strong, document.createTextNode(" — " + (message || fallback)));
+  result.append(stamp, p);
+  if (raw !== undefined) {
+    const d = document.createElement("details");
+    const sum = document.createElement("summary"); sum.textContent = "Show API response";
+    const pre = document.createElement("pre"); pre.textContent = JSON.stringify(raw, null, 2);
+    d.append(sum, pre); result.append(d);
+  }
+
+  if (kind !== "warn") {
+    const li = document.createElement("li");
+    li.innerHTML = `<span></span><span class="tag-${kind}">${label}</span>`;
+    li.firstChild.textContent = cn;
+    logList.prepend(li);
+    while (logList.children.length > 6) logList.lastChild.remove();
+    log.hidden = false;
+  }
+}
+
+input.addEventListener("input", () => {
+  input.value = input.value.replace(/\s+/g, "").toUpperCase();
+  err.textContent = ""; input.removeAttribute("aria-invalid");
+});
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const cn = input.value.trim();
+  const problem = validateFormat(cn);
+  if (problem) { err.textContent = problem; input.setAttribute("aria-invalid", "true"); input.focus(); return; }
+
+  btn.disabled = true; btn.textContent = "Checking…";
+  result.textContent = "Checking with V-Trans…";
+  try {
+    const { valid, message, raw } = await checkConsignment(cn);
+    show(valid ? "ok" : "bad", cn, message, raw);
+  } catch (ex) {
+    show("warn", cn, ex.name === "AbortError" ? "The check took too long. Try again." : ex.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Check number";
+  }
+});
+</script>
+</body>
+</html>
